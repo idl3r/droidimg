@@ -21,8 +21,13 @@ try:
 except:
     idaapi = None
 
-import ida_idp
-import ida_ida
+try:
+    import ida_idp
+    import ida_ida
+except:
+    ida_idp = None
+    ida_ida = None
+
 
 radare2 = True if 'R2PIPE_IN' in os.environ else False
 

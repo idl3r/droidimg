@@ -21,6 +21,9 @@ try:
 except:
     idaapi = None
 
+import ida_idp
+import ida_ida
+
 radare2 = True if 'R2PIPE_IN' in os.environ else False
 
 args = None
@@ -1002,9 +1005,15 @@ def accept_file(li, n):
 
     # ida 7+ compatibility, n is filename
     # we support only one format per file
-    if isinstance(n, (int, long)):
-        if n > 0:
-            return 0
+    try:
+        if isinstance(n, (int, long)):
+            if n > 0:
+                return 0
+    except:
+        if isinstance(n, (int)):
+            if n > 0:
+                return 0
+
 
     # magic = li.read(8)
     # if magic != 'ANDROID!':
@@ -1021,6 +1030,11 @@ def load_file(li, neflags, format):
     @return: 0-failure, 1-ok
     """
 
+    if idaapi is None:
+        print_log("idapi is None!")
+    else:
+        print_log(str(idaapi))
+
     li.seek(0)
     vmlinux = li.read(li.size())
 
@@ -1031,9 +1045,9 @@ def load_file(li, neflags, format):
         print_log('[!]get kallsyms error...')
         return 0
 
-    idaapi.set_processor_type("arm", idaapi.SETPROC_ALL|idaapi.SETPROC_FATAL)
+    idaapi.set_processor_type("arm", ida_idp.SETPROC_LOADER_NON_FATAL|ida_idp.SETPROC_LOADER)
     if kallsyms['arch'] == 'arm64':
-        idaapi.get_inf_structure().lflags |= idaapi.LFLG_64BIT
+        idaapi.get_inf_structure().lflags |= ida_ida.LFLG_64BIT
 
     li.file2base(0, kallsyms['_start'], kallsyms['_start']+li.size(), True)
 
@@ -1057,27 +1071,33 @@ def load_file(li, neflags, format):
 
     s = idaapi.segment_t()
     s.bitness = kallsyms['ptr_size'] // 32
-    s.startEA = kallsyms['_start']
+    s.start_ea = kallsyms['_start']
     if sinittext_addr == 0:
-        s.endEA = max_sym_addr
+        s.end_ea = max_sym_addr
     else:
-        s.endEA = sinittext_addr
+        s.end_ea = sinittext_addr
     s.perm = 5
     idaapi.add_segm_ex(s,".text","CODE",idaapi.ADDSEG_OR_DIE)
 
     if sinittext_addr > 0:
         s = idaapi.segment_t()
         s.bitness = kallsyms['ptr_size'] // 32
-        s.startEA = sinittext_addr
-        s.endEA = max_sym_addr
+        s.start_ea = sinittext_addr
+        s.end_ea = max_sym_addr
         s.perm = 7
         idaapi.add_segm_ex(s,".data","DATA",idaapi.ADDSEG_OR_DIE)
 
     for i in range(kallsyms['numsyms']):
-        if kallsyms['type'][i] in ['t','T']:
-            idaapi.add_entry(kallsyms['address'][i], kallsyms['address'][i], kallsyms['name'][i].encode('utf-8'), 1)
-        else:
-            idaapi.add_entry(kallsyms['address'][i], kallsyms['address'][i], kallsyms['name'][i].encode('utf-8'), 0)
+        try:
+            if kallsyms['type'][i] in ['t','T']:
+                idaapi.add_entry(kallsyms['address'][i], kallsyms['address'][i], kallsyms['name'][i].encode('utf-8'), 1)
+            else:
+                idaapi.add_entry(kallsyms['address'][i], kallsyms['address'][i], kallsyms['name'][i].encode('utf-8'), 0)
+        except:
+            if kallsyms['type'][i] in ['t','T']:
+                idaapi.add_entry(kallsyms['address'][i], kallsyms['address'][i], kallsyms['name'][i], 1)
+            else:
+                idaapi.add_entry(kallsyms['address'][i], kallsyms['address'][i], kallsyms['name'][i], 0)
 
     print_log("Android/Linux vmlinux loaded...")
     return 1

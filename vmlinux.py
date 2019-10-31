@@ -1030,11 +1030,6 @@ def load_file(li, neflags, format):
     @return: 0-failure, 1-ok
     """
 
-    if idaapi is None:
-        print_log("idapi is None!")
-    else:
-        print_log(str(idaapi))
-
     li.seek(0)
     vmlinux = li.read(li.size())
 
